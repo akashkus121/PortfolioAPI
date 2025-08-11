@@ -1,29 +1,22 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
-
-# This stage is used when running from VS in fast mode (Default for Debug configuration)
+# Use the ASP.NET runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-USER $APP_UID
 WORKDIR /app
-EXPOSE 8080
+EXPOSE 80
 
-
-# This stage is used to build the service project
+# Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["PortfolioAPI/PortfolioAPI.csproj", "PortfolioAPI/"]
-RUN dotnet restore "./PortfolioAPI/PortfolioAPI.csproj"
+
+# Copy csproj and restore
+COPY *.csproj ./
+RUN dotnet restore
+
+# Copy rest of the code
 COPY . .
-WORKDIR "/src/PortfolioAPI"
-RUN dotnet build "./PortfolioAPI.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet publish -c Release -o /app/publish
 
-# This stage is used to publish the service project to be copied to the final stage
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./PortfolioAPI.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
-
-# This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
+# Final image
 FROM base AS final
 WORKDIR /app
-COPY --from=publish /app/publish .
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "PortfolioAPI.dll"]
